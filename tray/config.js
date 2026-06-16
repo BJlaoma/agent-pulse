@@ -10,6 +10,7 @@ const DEFAULT_CONFIG = {
     enabled: true,
     sound: false,
     filter: "all",
+    style: "native",
     position: "bottom-right",
     duration: 5000,
     width: 320,

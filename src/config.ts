@@ -3,10 +3,11 @@ import { join } from "path";
 import { homedir } from "os";
 
 export interface AgentPulseConfig {
-  notification: {
+    notification: {
     enabled: boolean;
     sound: boolean;
     filter: "all" | "attention" | "none";
+    style: "native" | "custom";
     position: "bottom-left" | "bottom-right" | "top-left" | "top-right";
     duration: number;
     width: number;
@@ -25,6 +26,7 @@ const DEFAULT_CONFIG: AgentPulseConfig = {
     enabled: true,
     sound: false,
     filter: "all",
+    style: "native",
     position: "bottom-right",
     duration: 5000,
     width: 320,

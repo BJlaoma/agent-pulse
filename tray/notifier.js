@@ -30,8 +30,9 @@ function notify(status, label, config) {
 
   const iconColor = STATUS_ICON_MAP[status] || "gray";
 
-  // Use custom notification for configurable position
-  if (config.notification.position && config.notification.position !== "default") {
+  // Use native notification by default (more reliable)
+  // Custom notification (PowerShell WPF) only when style="custom"
+  if (config.notification.style === "custom") {
     try {
       showCustomNotification("Agent Pulse", label, iconColor, config);
     } catch (e) {
