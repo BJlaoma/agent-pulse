@@ -32,10 +32,11 @@ export function mapEventToState(event: Event): AgentState | null {
       return null;
     }
 
-    case "permission.updated": {
+    case "permission.replied": {
+      // Permission resolved, back to idle
       return {
-        status: "waiting",
-        label: "需要手动操作",
+        status: "idle",
+        label: "AI 已空闲",
         timestamp,
         sessionID: event.properties.sessionID,
       };

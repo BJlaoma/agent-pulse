@@ -100,6 +100,19 @@ export default async function (input: PluginInput): Promise<Hooks> {
       }
     },
 
+    "permission.ask": async (permission, output) => {
+      logToFile("INFO", "Permission asked", { permission: permission.title, type: permission.type });
+      // Set waiting state while user is deciding
+      writeState({
+        status: "waiting",
+        label: "需要权限确认",
+        timestamp: Date.now(),
+        sessionID: permission.sessionID,
+      });
+      // Allow opencode to proceed with asking user
+      output.status = "ask";
+    },
+
     dispose: async () => {
       logToFile("INFO", "Plugin unloading (dispose called)");
       writeState(getDisconnectedState());
