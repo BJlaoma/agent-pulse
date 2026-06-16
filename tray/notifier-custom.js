@@ -81,16 +81,16 @@ $form.Controls.Add($panel)
 # Click to close
 $form.Add_Click({ $form.Close() })
 
-$form.Show()
-
-Start-Sleep -Milliseconds ${duration}
-$form.Close()
+# Run message loop
+[System.Windows.Forms.Application]::Run($form)
 `;
 
-  const ps = spawn("powershell", [
+  const ps = spawn("cmd", [
+    "/c",
+    "start", "powershell",
     "-Sta",
-    "-WindowStyle", "Hidden",
     "-ExecutionPolicy", "Bypass",
+    "-NoExit",
     "-Command", psScript,
   ], {
     windowsHide: true,
@@ -104,6 +104,13 @@ $form.Close()
   ps.on("error", (err) => {
     logger.error("Custom notification process error", { error: err.message });
   });
+  
+  // Kill notification after duration
+  setTimeout(() => {
+    try {
+      ps.kill();
+    } catch (e) {}
+  }, duration + 1000);
 }
 
 module.exports = { showCustomNotification };

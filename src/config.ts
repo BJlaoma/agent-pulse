@@ -26,7 +26,7 @@ const DEFAULT_CONFIG: AgentPulseConfig = {
     enabled: true,
     sound: false,
     filter: "all",
-    style: "custom",
+    style: "native",
     position: "bottom-right",
     duration: 5000,
     width: 320,

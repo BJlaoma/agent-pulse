@@ -31,12 +31,15 @@ function notify(status, label, config) {
 
   const iconColor = STATUS_ICON_MAP[status] || "gray";
 
-  // Use custom notification by default (better looking, configurable position)
-  // Fallback to native notification if custom fails
-  try {
-    showCustomNotification("Agent Pulse", label, iconColor, config);
-  } catch (e) {
-    logger.error("Custom notification failed, falling back to native", { error: e.message });
+  // Native notification (reliable), custom (experimental) when style=custom
+  if (config.notification.style === "custom") {
+    try {
+      showCustomNotification("Agent Pulse", label, iconColor, config);
+    } catch (e) {
+      logger.error("Custom notification failed, falling back to native", { error: e.message });
+      fallbackNotify(status, label);
+    }
+  } else {
     fallbackNotify(status, label);
   }
 
