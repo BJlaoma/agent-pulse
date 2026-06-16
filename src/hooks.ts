@@ -32,6 +32,15 @@ export function mapEventToState(event: Event): AgentState | null {
       return null;
     }
 
+    case ("permission.asked" as any): {
+      return {
+        status: "waiting",
+        label: "需要权限确认",
+        timestamp,
+        sessionID: (event as any).properties?.sessionID || "unknown",
+      };
+    }
+
     case "permission.replied": {
       // Permission resolved, back to idle
       return {
