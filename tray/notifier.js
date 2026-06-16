@@ -2,6 +2,7 @@ const notifier = require("node-notifier");
 const player = require("play-sound")();
 const { join } = require("path");
 const { showCustomNotification } = require("./notifier-custom.js");
+const logger = require("./logger.js");
 
 const SOUND_PATH = join(__dirname, "..", "assets", "ping.wav");
 
@@ -30,16 +31,12 @@ function notify(status, label, config) {
 
   const iconColor = STATUS_ICON_MAP[status] || "gray";
 
-  // Use native notification by default (more reliable)
-  // Custom notification (PowerShell WPF) only when style="custom"
-  if (config.notification.style === "custom") {
-    try {
-      showCustomNotification("Agent Pulse", label, iconColor, config);
-    } catch (e) {
-      // Fallback to native notification
-      fallbackNotify(status, label);
-    }
-  } else {
+  // Use custom notification by default (better looking, configurable position)
+  // Fallback to native notification if custom fails
+  try {
+    showCustomNotification("Agent Pulse", label, iconColor, config);
+  } catch (e) {
+    logger.error("Custom notification failed, falling back to native", { error: e.message });
     fallbackNotify(status, label);
   }
 

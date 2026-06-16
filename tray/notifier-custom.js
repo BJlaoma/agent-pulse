@@ -1,87 +1,78 @@
 const { spawn } = require("child_process");
+const { writeFileSync, unlinkSync } = require("fs");
 const { join } = require("path");
+const { tmpdir } = require("os");
+const logger = require("./logger.js");
 
-/**
- * Create a custom notification popup at specified position using PowerShell WPF
- * 
- * @param {string} title - Notification title
- * @param {string} message - Notification message
- * @param {string} iconColor - Color name (green/yellow/red/gray)
- * @param {object} config - Notification config
- */
+const COLORS = {
+  green: "34C759",
+  yellow: "FF9F0A",
+  red: "FF3B30",
+  gray: "8E8E93",
+};
+
+const POSITIONS = {
+  "bottom-right": { x: "screen - 340", y: "screenHeight - 120" },
+  "bottom-left": { x: "20", y: "screenHeight - 120" },
+  "top-right": { x: "screen - 340", y: "20" },
+  "top-left": { x: "20", y: "20" },
+};
+
 function showCustomNotification(title, message, iconColor, config) {
-  if (!config.notification.enabled) {
-    return;
-  }
-
-  // Position mapping
-  const positions = {
-    "bottom-left": { x: 20, y: -100, alignX: "Left", alignY: "Bottom" },
-    "bottom-right": { x: -20, y: -100, alignX: "Right", alignY: "Bottom" },
-    "top-left": { x: 20, y: 20, alignX: "Left", alignY: "Top" },
-    "top-right": { x: -20, y: 20, alignX: "Right", alignY: "Top" },
-  };
-
-  const pos = positions[config.notification.position] || positions["bottom-right"];
+  const position = config.notification.position || "bottom-right";
   const duration = config.notification.duration || 5000;
-  const width = config.notification.width || 320;
-  const height = config.notification.height || 100;
-
-  // Color mapping
-  const colors = {
-    green: "#34C759",
-    yellow: "#FF9F0A",
-    red: "#FF3B30",
-    gray: "#8E8E93",
-  };
-  const accentColor = colors[iconColor] || colors.gray;
-
+  const hexColor = COLORS[iconColor] || COLORS.gray;
+  
+  const pos = POSITIONS[position] || POSITIONS["bottom-right"];
+  
+  const tmpFile = join(tmpdir(), `agent-pulse-${Date.now()}.ps1`);
+  
+  // 使用 cmd /c start 启动 PowerShell，确保能显示 GUI 窗口
   const psScript = `
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
 
+$title = $env:AGENT_PULSE_TITLE
+$message = $env:AGENT_PULSE_MESSAGE
+$duration = $env:AGENT_PULSE_DURATION
+$color = $env:AGENT_PULSE_COLOR
+
 $window = New-Object System.Windows.Window
-$window.Width = ${width}
-$window.Height = ${height}
 $window.WindowStyle = 'None'
 $window.ResizeMode = 'NoResize'
 $window.AllowsTransparency = $true
 $window.Background = 'Transparent'
 $window.Topmost = $true
 $window.ShowInTaskbar = $false
+$window.Width = 320
+$window.Height = 100
 
-# Position
 $screen = [System.Windows.SystemParameters]::PrimaryScreenWidth
 $screenHeight = [System.Windows.SystemParameters]::PrimaryScreenHeight
 
-if ($screen -eq 0) { $screen = 1920 }
-if ($screenHeight -eq 0) { $screenHeight = 1080 }
+$window.Left = ${pos.x}
+$window.Top = ${pos.y}
 
-$x = ${pos.x}
-$y = ${pos.y}
-
-if ($x -lt 0) { $x = $screen + $x - ${width} }
-if ($y -lt 0) { $y = $screenHeight + $y - ${height} }
-
-$window.Left = $x
-$window.Top = $y
-
-# Border
 $border = New-Object System.Windows.Controls.Border
 $border.CornerRadius = 8
-$border.Background = '#CC1E1E1E'
-$border.BorderBrush = '${accentColor}'
-$border.BorderThickness = 3
+$border.Background = '#FF2D2D2D'
+$border.BorderBrush = '#FF' + $color
+$border.BorderThickness = 2
 $border.Padding = 15
 
-# Grid
+$shadow = New-Object System.Windows.Media.Effects.DropShadowEffect
+$shadow.Color = '#FF000000'
+$shadow.BlurRadius = 10
+$shadow.ShadowDepth = 5
+$shadow.Opacity = 0.5
+$border.Effect = $shadow
+
 $grid = New-Object System.Windows.Controls.Grid
 $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
 $grid.RowDefinitions.Add((New-Object System.Windows.Controls.RowDefinition))
 
-# Title
 $titleBlock = New-Object System.Windows.Controls.TextBlock
-$titleBlock.Text = '${title}'
+$titleBlock.Text = $title
 $titleBlock.Foreground = 'White'
 $titleBlock.FontSize = 14
 $titleBlock.FontWeight = 'Bold'
@@ -89,25 +80,48 @@ $titleBlock.Margin = '0,0,0,5'
 [System.Windows.Controls.Grid]::SetRow($titleBlock, 0)
 $grid.Children.Add($titleBlock)
 
-# Message
 $msgBlock = New-Object System.Windows.Controls.TextBlock
-$msgBlock.Text = '${message}'
+$msgBlock.Text = $message
 $msgBlock.Foreground = '#CCCCCC'
 $msgBlock.FontSize = 12
 $msgBlock.TextWrapping = 'Wrap'
-$msgBlock.MaxWidth = ${width - 30}
+$msgBlock.MaxWidth = 290
 [System.Windows.Controls.Grid]::SetRow($msgBlock, 1)
 $grid.Children.Add($msgBlock)
 
 $border.Child = $grid
 $window.Content = $border
 
-# Show
+$window.Opacity = 0
+
+$transform = New-Object System.Windows.Media.TranslateTransform
+$transform.X = 100
+$window.RenderTransform = $transform
+
 $window.Show()
 
-# Auto close
+$storyboard = New-Object System.Windows.Media.Animation.Storyboard
+
+$opacityAnimation = New-Object System.Windows.Media.Animation.DoubleAnimation
+$opacityAnimation.From = 0
+$opacityAnimation.To = 1
+$opacityAnimation.Duration = [System.Windows.Duration]::FromSeconds(0.3)
+$storyboard.Children.Add($opacityAnimation)
+[System.Windows.Media.Animation.Storyboard]::SetTarget($opacityAnimation, $window)
+[System.Windows.Media.Animation.Storyboard]::SetTargetProperty($opacityAnimation, (New-Object System.Windows.PropertyPath([System.Windows.UIElement]::OpacityProperty)))
+
+$slideAnimation = New-Object System.Windows.Media.Animation.DoubleAnimation
+$slideAnimation.From = 100
+$slideAnimation.To = 0
+$slideAnimation.Duration = [System.Windows.Duration]::FromSeconds(0.3)
+$storyboard.Children.Add($slideAnimation)
+[System.Windows.Media.Animation.Storyboard]::SetTarget($slideAnimation, $transform)
+[System.Windows.Media.Animation.Storyboard]::SetTargetProperty($slideAnimation, (New-Object System.Windows.PropertyPath([System.Windows.Media.TranslateTransform]::XProperty)))
+
+$storyboard.Begin()
+
 $timer = New-Object System.Windows.Threading.DispatcherTimer
-$timer.Interval = [TimeSpan]::FromMilliseconds(${duration})
+$timer.Interval = [TimeSpan]::FromMilliseconds($duration)
 $timer.Add_Tick({
     $window.Close()
     $timer.Stop()
@@ -115,30 +129,52 @@ $timer.Add_Tick({
 })
 $timer.Start()
 
-# Close on click
 $window.Add_MouseLeftButtonDown({
     $window.Close()
     $timer.Stop()
     [System.Windows.Threading.Dispatcher]::CurrentDispatcher.BeginInvokeShutdown('Background')
 })
 
-# Run dispatcher
 [System.Windows.Threading.Dispatcher]::Run()
+
+Remove-Item -Path "$env:AGENT_PULSE_TMPFILE" -ErrorAction SilentlyContinue
 `;
-
-  // Execute PowerShell
-  const ps = spawn("powershell", [
-    "-NoProfile",
-    "-ExecutionPolicy", "Bypass",
-    "-Command", psScript,
-  ], {
-    windowsHide: true,
-    detached: true,
-  });
-
-  ps.on("error", (err) => {
-    console.error("[Agent Pulse] Custom notification failed:", err.message);
-  });
+  
+  try {
+    writeFileSync(tmpFile, psScript);
+    
+    const env = {
+      ...process.env,
+      AGENT_PULSE_TITLE: title,
+      AGENT_PULSE_MESSAGE: message,
+      AGENT_PULSE_COLOR: hexColor,
+      AGENT_PULSE_DURATION: duration.toString(),
+      AGENT_PULSE_TMPFILE: tmpFile,
+    };
+    
+    logger.info("Launching custom notification", { title, position, duration });
+    
+    // 使用 cmd /c start 启动 PowerShell，确保能创建 GUI 窗口
+    const ps = spawn("cmd", ["/c", "start", "powershell", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", tmpFile], {
+      windowsHide: true,
+      detached: true,
+      env,
+    });
+    
+    ps.on("exit", (code) => {
+      logger.debug("Custom notification process exited", { code });
+      try { unlinkSync(tmpFile); } catch(e) {}
+    });
+    
+    ps.on("error", (err) => {
+      logger.error("Custom notification process error", { error: err.message });
+      try { unlinkSync(tmpFile); } catch(e) {}
+    });
+    
+  } catch (e) {
+    logger.error("Failed to launch custom notification", { error: e.message });
+    throw e;
+  }
 }
 
 module.exports = { showCustomNotification };
