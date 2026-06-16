@@ -1,0 +1,25 @@
+{
+  "name": "agent-pulse",
+  "version": "0.1.0",
+  "description": "Windows system tray status indicator for opencode",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.16.0",
+    "node-notifier": "^10.0.1",
+    "play-sound": "^1.1.6",
+    "systray": "^2.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/node-notifier": "^8.0.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/sdk": "*"
+  }
+}
