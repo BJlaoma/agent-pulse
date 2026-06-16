@@ -12,7 +12,7 @@
     "@opencode-ai/plugin": "^1.16.0",
     "node-notifier": "^10.0.1",
     "play-sound": "^1.1.6",
-    "systray": "^2.0.0"
+    "systray": "^1.0.5"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
