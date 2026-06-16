@@ -7,6 +7,10 @@ export interface AgentPulseConfig {
     enabled: boolean;
     sound: boolean;
     filter: "all" | "attention" | "none";
+    position: "bottom-left" | "bottom-right" | "top-left" | "top-right";
+    duration: number;
+    width: number;
+    height: number;
   };
   tray: {
     showLabel: boolean;
@@ -21,6 +25,10 @@ const DEFAULT_CONFIG: AgentPulseConfig = {
     enabled: true,
     sound: false,
     filter: "all",
+    position: "bottom-right",
+    duration: 5000,
+    width: 320,
+    height: 100,
   },
   tray: {
     showLabel: true,

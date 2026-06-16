@@ -1,5 +1,6 @@
 import type { PluginInput, Hooks } from "@opencode-ai/plugin";
 import type { Event } from "@opencode-ai/sdk";
+import { tool } from "@opencode-ai/plugin";
 import { spawn, type ChildProcess } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -104,6 +105,71 @@ export default async function (input: PluginInput): Promise<Hooks> {
       writeState(getDisconnectedState());
       stopTray();
       logToFile("INFO", "Plugin disposed");
+    },
+
+    tool: {
+      "agent-pulse-status": tool({
+        description: "Get the current status of Agent Pulse (AI status indicator)",
+        args: {},
+        async execute() {
+          const config = loadConfig();
+          const status = trayProcess !== null && !trayProcess.killed;
+          return {
+            output: `Agent Pulse Status:\n- Tray running: ${status}\n- Notifications: ${config.notification.enabled ? "enabled" : "disabled"}\n- Sound: ${config.notification.sound ? "on" : "off"}\n- Filter: ${config.notification.filter}\n- Position: ${config.notification.position}`,
+            metadata: {
+              trayRunning: status,
+              config: config.notification,
+            },
+          };
+        },
+      }),
+      "agent-pulse-config": tool({
+        description: "Update Agent Pulse configuration (notification settings, position, etc.)",
+        args: {
+          enabled: tool.schema.boolean().optional().describe("Enable/disable notifications"),
+          sound: tool.schema.boolean().optional().describe("Enable/disable sound"),
+          filter: tool.schema.enum(["all", "attention", "none"]).optional().describe("Notification filter"),
+          position: tool.schema.enum(["bottom-left", "bottom-right", "top-left", "top-right"]).optional().describe("Notification position"),
+          duration: tool.schema.number().optional().describe("Notification duration in ms"),
+        },
+        async execute(args) {
+          const config = loadConfig();
+          const newConfig = {
+            ...config,
+            notification: {
+              ...config.notification,
+              ...args,
+            },
+          };
+          // Save to file
+          const { saveConfig } = await import("./config.js");
+          saveConfig(newConfig);
+          return {
+            output: `Configuration updated successfully.\nNew settings:\n- Enabled: ${newConfig.notification.enabled}\n- Sound: ${newConfig.notification.sound}\n- Filter: ${newConfig.notification.filter}\n- Position: ${newConfig.notification.position}`,
+            metadata: {
+              config: newConfig.notification,
+            },
+          };
+        },
+      }),
+      "agent-pulse-restart": tool({
+        description: "Restart the Agent Pulse tray process",
+        args: {},
+        async execute() {
+          logToFile("INFO", "Restarting tray process via tool");
+          stopTray();
+          // Wait a bit then start
+          await new Promise(resolve => setTimeout(resolve, 500));
+          startTray();
+          return {
+            output: "Agent Pulse tray process restarted successfully.",
+            metadata: {
+              restarted: true,
+              pid: trayProcess?.pid,
+            },
+          };
+        },
+      }),
     },
   };
 }

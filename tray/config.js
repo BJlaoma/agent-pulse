@@ -10,6 +10,10 @@ const DEFAULT_CONFIG = {
     enabled: true,
     sound: false,
     filter: "all",
+    position: "bottom-right",
+    duration: 5000,
+    width: 320,
+    height: 100,
   },
   tray: {
     showLabel: true,
