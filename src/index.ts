@@ -3,7 +3,7 @@ import type { Event } from "@opencode-ai/sdk";
 import { spawn, type ChildProcess } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { appendFileSync } from "fs";
+import { appendFileSync, readFileSync, statSync, writeFileSync, existsSync } from "fs";
 import { mapEventToState, getDisconnectedState } from "./hooks.js";
 import { writeState } from "./state.js";
 import { loadConfig } from "./config.js";
@@ -12,12 +12,25 @@ let trayProcess: ChildProcess | null = null;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRAY_SCRIPT = join(__dirname, "..", "tray", "index.js");
+const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
 
 function logToFile(level: string, message: string, data?: any) {
   const timestamp = new Date().toISOString();
   const logPath = join(process.env.HOME || process.env.USERPROFILE || "", ".config", "opencode", "agent-pulse-debug.log");
   const line = `[${timestamp}] [PLUGIN] [${level}] ${message}${data ? " | " + JSON.stringify(data) : ""}\n`;
   try {
+    // Check size before writing
+    if (existsSync(logPath)) {
+      const stats = statSync(logPath);
+      if (stats.size > MAX_LOG_SIZE) {
+        const content = readFileSync(logPath, "utf-8");
+        const keepSize = 1024 * 1024; // 1MB
+        const truncated = content.slice(-keepSize);
+        const index = truncated.indexOf("\n");
+        const cleanStart = index > 0 ? truncated.slice(index + 1) : truncated;
+        writeFileSync(logPath, `[${new Date().toISOString()}] [PLUGIN] [INFO] Log truncated due to size limit\n` + cleanStart);
+      }
+    }
     appendFileSync(logPath, line);
   } catch (e) {
     // Silently fail - no console output
