@@ -1,13 +1,19 @@
 {
   "name": "agent-pulse",
   "version": "0.1.0",
-  "description": "Windows system tray status indicator for opencode",
+  "description": "Windows system tray status indicator for opencode — real-time AI status with desktop notifications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch"
   },
+  "keywords": ["opencode", "opencode-plugin", "tray", "notification", "status"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/agent-pulse"
+  },
+  "license": "MIT",
   "dependencies": {
     "@opencode-ai/plugin": "^1.16.0",
     "node-notifier": "^10.0.1",

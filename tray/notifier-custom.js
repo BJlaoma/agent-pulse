@@ -184,16 +184,20 @@ $xBtn.Add_Click({ $form.Close() })
 $form.Controls.Add($xBtn)
 $xBtn.BringToFront()
 
-# Slide-up animation
+# Slide-up animation with fade
 $targetTop = $form.Top
 $form.Top += $form.Height + 30
+$form.Opacity = 0
 $form.Show()
-for ($i = $form.Height + 30; $i -ge 0; $i -= 10) {
-  $form.Top = $targetTop + $i
+$steps = [Math]::Ceiling(($form.Height + 30) / 10)
+for ($i = $steps; $i -ge 0; $i--) {
+  $form.Top = $targetTop + ($i * 10)
+  $form.Opacity = [Math]::Min(0.95, (1 - $i / $steps) * 0.95)
   [System.Windows.Forms.Application]::DoEvents()
   Start-Sleep -Milliseconds 8
 }
 $form.Top = $targetTop
+$form.Opacity = 0.95
 
 $end = [DateTime]::Now.AddMilliseconds(${duration})
 while ([DateTime]::Now -lt $end -and $form.Visible) {
@@ -201,9 +205,10 @@ while ([DateTime]::Now -lt $end -and $form.Visible) {
   Start-Sleep -Milliseconds 50
 }
 
-# Slide-down
-for ($i = 0; $i -le $form.Height + 30; $i += 10) {
-  $form.Top = $targetTop + $i
+# Slide-down with fade
+for ($i = 0; $i -le $steps; $i++) {
+  $form.Top = $targetTop + ($i * 10)
+  $form.Opacity = [Math]::Max(0, (1 - $i / $steps) * 0.95)
   [System.Windows.Forms.Application]::DoEvents()
   Start-Sleep -Milliseconds 8
 }
@@ -228,9 +233,7 @@ $form.Close()
   });
   
   setTimeout(() => {
-    try {
-      ps.kill();
-    } catch (e) {}
+    try { ps.kill(); } catch (e) {}
   }, duration + 1000);
 }
 

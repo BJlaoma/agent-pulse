@@ -51,7 +51,7 @@ if ($proc) { [WF]::Focus($proc.MainWindowHandle) } else { exit 1 }
   }
 }
 
-function createTray(status, label, onExit, onOpenConfig, onToggleNotify) {
+function createTray(status, label, onExit, onOpenConfig, onToggleNotify, onSettings, onUninstall) {
   if (currentTray) {
     try {
       currentTray.kill(false);
@@ -100,6 +100,12 @@ function createTray(status, label, onExit, onOpenConfig, onToggleNotify) {
           enabled: true,
         },
         {
+          title: "⚙ 设置",
+          tooltip: "Open settings panel",
+          checked: false,
+          enabled: true,
+        },
+        {
           title: "⚙ 打开配置",
           tooltip: "Open configuration file",
           checked: false,
@@ -108,6 +114,18 @@ function createTray(status, label, onExit, onOpenConfig, onToggleNotify) {
         {
           title: "退出",
           tooltip: "Exit Agent Pulse",
+          checked: false,
+          enabled: true,
+        },
+        {
+          title: "──────────────",
+          tooltip: "",
+          checked: false,
+          enabled: false,
+        },
+        {
+          title: "卸载 Agent Pulse",
+          tooltip: "Remove plugin from opencode",
           checked: false,
           enabled: true,
         },
@@ -122,6 +140,8 @@ function createTray(status, label, onExit, onOpenConfig, onToggleNotify) {
     if (title.includes("退出")) {
       systray.kill();
       onExit();
+    } else if (title === "⚙ 设置") {
+      onSettings();
     } else if (title.includes("打开配置")) {
       onOpenConfig();
     } else if (title.includes("聚焦 opencode")) {
@@ -129,6 +149,8 @@ function createTray(status, label, onExit, onOpenConfig, onToggleNotify) {
     } else if (title.includes("暂停通知") || title.includes("恢复通知")) {
       onToggleNotify(!notifyEnabled);
       systray.kill(false);
+    } else if (title.includes("卸载")) {
+      onUninstall();
     }
   });
 
@@ -140,8 +162,8 @@ function createTray(status, label, onExit, onOpenConfig, onToggleNotify) {
   return systray;
 }
 
-function updateTray(status, label, onExit, onOpenConfig, onToggleNotify) {
-  createTray(status, label, onExit, onOpenConfig, onToggleNotify);
+function updateTray(status, label, onExit, onOpenConfig, onToggleNotify, onSettings, onUninstall) {
+  createTray(status, label, onExit, onOpenConfig, onToggleNotify, onSettings, onUninstall);
 }
 
 function killTray() {

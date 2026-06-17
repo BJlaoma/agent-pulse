@@ -67,6 +67,43 @@ function handleStateChange(reason) {
       const { saveConfig } = require("./config.js");
       saveConfig(config);
       logger.info("Notifications toggled", { enabled: enable });
+    }, () => {
+      // Open settings panel
+      logger.info("Opening settings panel");
+      try {
+        const { showSettingsPanel } = require("./settings-panel.js");
+        showSettingsPanel();
+      } catch (e) {
+        logger.error("Failed to open settings panel", { error: e.message, stack: e.stack });
+      }
+    }, () => {
+      // Uninstall
+      logger.info("Uninstalling Agent Pulse");
+      try {
+        const fs = require("fs");
+        const path = require("path");
+        const os = require("os");
+        
+        // Remove from opencode.json
+        const configPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
+        if (fs.existsSync(configPath)) {
+          const raw = fs.readFileSync(configPath, "utf-8");
+          const config = JSON.parse(raw);
+          if (config.plugin && Array.isArray(config.plugin)) {
+            config.plugin = config.plugin.filter(p => {
+              const name = typeof p === "string" ? p : (Array.isArray(p) ? p[0] : "");
+              return !name.includes("agent-pulse");
+            });
+            fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+            logger.info("Removed agent-pulse from opencode.json");
+          }
+        }
+        
+        console.log("[Agent Pulse] 已从 opencode.json 移除插件引用。重启 opencode 完成卸载。");
+      } catch (e) {
+        logger.error("Uninstall failed", { error: e.message });
+      }
+      process.exit(0);
     });
     logger.info("Tray updated", { status, label });
   } catch (e) {

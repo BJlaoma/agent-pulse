@@ -1,83 +1,84 @@
 # Agent Pulse
 
-Windows system tray status indicator for opencode.
+Windows system tray status indicator for opencode — real-time AI status with desktop notifications.
 
 ## Features
 
-- Real-time AI status display via system tray icon
-- Windows Toast notifications on status changes
+- **System tray icon** — green/yellow/red/gray shows AI status at a glance
+- **Desktop notifications** — custom-styled popup with model name, token usage, and user question
+- **Slide-up animation** with fade in/out
+- **Click to focus** — click the notification to bring opencode to foreground
+- **Settings panel** — GUI to configure all options
+- **Tray menu** — pause notifications, focus opencode, settings, uninstall
 - Configurable sound alerts
-- Color-coded status:
-  - 🟢 Green: AI idle or thinking
-  - 🟡 Yellow: Waiting for user action
-  - 🔴 Red: Error occurred
-  - ⚪ Gray: Disconnected
+- Notification filter and `notifyOn` status selection
 
 ## Installation
 
-```bash
-npm install
-npm run build
-```
-
-## Configuration
-
-Add to `~/.config/opencode/opencode.json`:
+Add to `opencode.json`:
 
 ```json
 {
-  "plugin": [
-    "D:/code/agent-pulse"
-  ]
+  "plugin": ["agent-pulse"]
 }
 ```
 
-## Configuration Options
+Restart opencode — it auto-installs dependencies at startup.  
 
-Create `~/.config/opencode/agent-pulse.json`:
+> **Windows only.** Requires Windows 10+ for toast notifications.
+
+## Uninstall
+
+**Quick uninstall** — Right-click tray icon → "🗑 卸载 Agent Pulse"  
+
+Removes the plugin from `opencode.json` and cleans up config files.
+
+**Manual uninstall** — Remove `"agent-pulse"` from `opencode.json` plugin array, restart opencode.
+
+## Configuration
+
+Via tray menu → "⚙ 设置" panel, or Edit `~/.config/opencode/agent-pulse.json`:
 
 ```json
 {
   "notification": {
     "enabled": true,
-    "sound": true,
-    "filter": "all"
+    "sound": false,
+    "filter": "all",
+    "notifyOn": ["thinking", "idle", "waiting", "error", "disconnected"],
+    "style": "custom",
+    "position": "bottom-right",
+    "duration": 5000
   }
 }
 ```
 
-- `filter`: `"all"` (all notifications) | `"attention"` (only waiting/error) | `"none"` (disabled)
-
-## Usage
-
-Run `opencode` and the tray icon will appear automatically.
-
-Right-click the tray icon for options:
-- View current status
-- Open configuration
-- Exit
-
-## Architecture
-
-The plugin consists of two parts:
-1. **Plugin core** (`src/`): Hooks into opencode events and writes state
-2. **Tray process** (`tray/`): Runs independently, watches state file, manages tray icon
-
-## Development
-
-```bash
-npm run dev  # Watch mode
-```
+| Option | Values | Default |
+|--------|--------|---------|
+| `enabled` | true/false | true |
+| `sound` | true/false | false |
+| `filter` | all / attention / none | all |
+| `notifyOn` | array of statuses | all five |
+| `style` | custom / native | native |
+| `position` | bottom-right / bottom-left / top-right / top-left | bottom-right |
+| `duration` | milliseconds | 5000 |
 
 ## Status Mapping
 
-| opencode Event | Status | Color |
-|---|---|---|
-| `session.status: busy` | thinking | 🟢 Green |
-| `session.status: idle` | idle | 🟢 Green |
-| `permission.updated` | waiting | 🟡 Yellow |
-| `session.status: retry` | waiting | 🟡 Yellow |
-| `session.error` | error | 🔴 Red |
+| Status | Color | Meaning |
+|--------|-------|---------|
+| thinking | 🟢 | AI is generating a response |
+| idle | 🟢 | AI is idle, ready |
+| waiting | 🟡 | Waiting for permission/user action |
+| error | 🔴 | An error occurred |
+| disconnected | ⚪ | opencode disconnected |
+
+## Architecture
+
+Two-process model:
+
+1. **Plugin core** (`src/`) — runs inside opencode (Bun), hooks into events, writes state file
+2. **Tray process** (`tray/`) — standalone Node.js process, watches state file, manages tray & notifications
 
 ## License
 
