@@ -1,6 +1,6 @@
 {
   "name": "@starkita7/agent-pulse",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Windows system tray status indicator for opencode — real-time AI status with desktop notifications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
