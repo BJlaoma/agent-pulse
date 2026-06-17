@@ -2,83 +2,81 @@
 
 Windows system tray status indicator for opencode — real-time AI status with desktop notifications.
 
+> **Windows only.** Requires Windows 10+.  
+> [中文文档](docs/README-CN.md)
+
 ## Features
 
 - **System tray icon** — green/yellow/red/gray shows AI status at a glance
 - **Desktop notifications** — custom-styled popup with model name, token usage, and user question
-- **Slide-up animation** with fade in/out
-- **Click to focus** — click the notification to bring opencode to foreground
+- **Slide-up animation** with fade in/out, click to focus opencode
 - **Settings panel** — GUI to configure all options
-- **Tray menu** — pause notifications, focus opencode, settings, uninstall
-- Configurable sound alerts
-- Notification filter and `notifyOn` status selection
+- **Tray menu** — pause, close, focus opencode, settings, uninstall
 
-## Installation
+## Lifecycle
 
-Add to `opencode.json`:
+| Action | How | Effect |
+|--------|-----|--------|
+| **Install** | Add `"agent-pulse"` to `opencode.json` | auto-install on restart |
+| **Run** | Start opencode | tray icon appears |
+| **Pause** | Tray → "🔔 Pause" | tray stays, notifications stop |
+| **Close** | Tray → "Close" | tray hides, auto-restart on next event |
+| **Uninstall** | Tray → "Uninstall" | removes config, restart opencode to complete |
 
-```json
-{
-  "plugin": ["agent-pulse"]
-}
+## Install
+
+### Via npm
+
+```bash
+npm install -g agent-pulse
 ```
 
-Restart opencode — it auto-installs dependencies at startup.  
+Add to `opencode.json` (or ask opencode AI to do it):
 
-> **Windows only.** Requires Windows 10+ for toast notifications.
+```json
+{ "plugin": ["agent-pulse"] }
+```
 
-## Uninstall
+Restart opencode.
 
-**Quick uninstall** — Right-click tray icon → "🗑 卸载 Agent Pulse"  
+### Manual (drop-in)
 
-Removes the plugin from `opencode.json` and cleans up config files.
+Copy files to `.opencode/plugins/agent-pulse/`. No config needed.
 
-**Manual uninstall** — Remove `"agent-pulse"` from `opencode.json` plugin array, restart opencode.
+### Local dev
+
+```bash
+git clone https://github.com/anomalyco/agent-pulse
+cd agent-pulse && npm install && npm run build
+```
+
+```json
+{ "plugin": ["D:/code/agent-pulse"] }
+```
 
 ## Configuration
 
-Via tray menu → "⚙ 设置" panel, or Edit `~/.config/opencode/agent-pulse.json`:
-
-```json
-{
-  "notification": {
-    "enabled": true,
-    "sound": false,
-    "filter": "all",
-    "notifyOn": ["thinking", "idle", "waiting", "error", "disconnected"],
-    "style": "custom",
-    "position": "bottom-right",
-    "duration": 5000
-  }
-}
-```
+Tray → "Settings", or `~/.config/opencode/agent-pulse.json`:
 
 | Option | Values | Default |
 |--------|--------|---------|
 | `enabled` | true/false | true |
 | `sound` | true/false | false |
 | `filter` | all / attention / none | all |
-| `notifyOn` | array of statuses | all five |
+| `notifyOn` | status array | all five |
 | `style` | custom / native | native |
 | `position` | bottom-right / bottom-left / top-right / top-left | bottom-right |
-| `duration` | milliseconds | 5000 |
+| `duration` | ms | 5000 |
 
-## Status Mapping
+## Status
 
 | Status | Color | Meaning |
 |--------|-------|---------|
-| thinking | 🟢 | AI is generating a response |
-| idle | 🟢 | AI is idle, ready |
-| waiting | 🟡 | Waiting for permission/user action |
-| error | 🔴 | An error occurred |
+| thinking | 🟢 | AI generating |
+| idle | 🟢 | Ready |
+| waiting | 🟡 | Awaiting permission |
+| error | 🔴 | Error occurred |
 | disconnected | ⚪ | opencode disconnected |
-
-## Architecture
-
-Two-process model:
-
-1. **Plugin core** (`src/`) — runs inside opencode (Bun), hooks into events, writes state file
-2. **Tray process** (`tray/`) — standalone Node.js process, watches state file, manages tray & notifications
 
 ## License
 

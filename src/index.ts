@@ -49,6 +49,10 @@ function logToFile(level: string, message: string, data?: any) {
 
 function startTray() {
   const config = loadConfig();
+  if (!config.notification.enabled) {
+    logToFile("INFO", "Tray not started (notifications disabled)");
+    return;
+  }
   logToFile("INFO", "Starting tray process", { config });
   
   trayProcess = spawn("node", [TRAY_SCRIPT], {
@@ -136,6 +140,14 @@ export default async function (input: PluginInput): Promise<Hooks> {
         logToFile("INFO", "State mapped from event", { eventType: event.type, newState: state });
         writeState(state);
         logToFile("INFO", "State written to file");
+        // Auto-restart tray if it died (but only if enabled)
+        if (!trayProcess || trayProcess.killed) {
+          const config = loadConfig();
+          if (config.notification.enabled) {
+            logToFile("INFO", "Tray not running, restarting");
+            startTray();
+          }
+        }
       } else {
         logToFile("DEBUG", "Event ignored (no state mapping)", { type: event.type });
       }

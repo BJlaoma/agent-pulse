@@ -112,8 +112,8 @@ function createTray(status, label, onExit, onOpenConfig, onToggleNotify, onSetti
           enabled: true,
         },
         {
-          title: "退出",
-          tooltip: "Exit Agent Pulse",
+          title: "关闭托盘",
+          tooltip: "Temporarily hide tray icon",
           checked: false,
           enabled: true,
         },
@@ -137,7 +137,7 @@ function createTray(status, label, onExit, onOpenConfig, onToggleNotify, onSetti
 
   systray.onClick(action => {
     const title = action.item.title;
-    if (title.includes("退出")) {
+    if (title.includes("关闭托盘")) {
       systray.kill();
       onExit();
     } else if (title === "⚙ 设置") {

@@ -84,22 +84,39 @@ function handleStateChange(reason) {
         const path = require("path");
         const os = require("os");
         
-        // Remove from opencode.json
-        const configPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
-        if (fs.existsSync(configPath)) {
-          const raw = fs.readFileSync(configPath, "utf-8");
-          const config = JSON.parse(raw);
-          if (config.plugin && Array.isArray(config.plugin)) {
-            config.plugin = config.plugin.filter(p => {
-              const name = typeof p === "string" ? p : (Array.isArray(p) ? p[0] : "");
-              return !name.includes("agent-pulse");
-            });
-            fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-            logger.info("Removed agent-pulse from opencode.json");
-          }
-        }
+        // 1. Remove from opencode.json (global + project)
+        const configPaths = [];
+        const globalPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
+        if (fs.existsSync(globalPath)) configPaths.push(globalPath);
+        const projectPath = path.join(__dirname, "..", ".opencode", "opencode.json");
+        if (fs.existsSync(projectPath)) configPaths.push(projectPath);
         
-        console.log("[Agent Pulse] 已从 opencode.json 移除插件引用。重启 opencode 完成卸载。");
+        configPaths.forEach(configPath => {
+          try {
+            const raw = fs.readFileSync(configPath, "utf-8");
+            const config = JSON.parse(raw);
+            if (config.plugin && Array.isArray(config.plugin)) {
+              config.plugin = config.plugin.filter(p => {
+                const name = typeof p === "string" ? p : (Array.isArray(p) ? p[0] : "");
+                return !name.includes("agent-pulse");
+              });
+              fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+              logger.info(`Removed agent-pulse from ${configPath}`);
+            }
+          } catch (e) {}
+        });
+
+        // 2. Clean up config files
+        const cfgDir = path.join(os.homedir(), ".config", "opencode");
+        const filesToRemove = [
+          path.join(cfgDir, "agent-pulse.json"),
+          path.join(cfgDir, "agent-pulse-state.json"),
+          path.join(cfgDir, "agent-pulse-debug.log"),
+        ];
+        filesToRemove.forEach(f => { try { fs.unlinkSync(f); } catch (e) {} });
+
+        console.log("[Agent Pulse] 已卸载。重启 opencode 后生效。");
+        console.log("[Agent Pulse] 如需删除项目文件: 手动删除 " + path.resolve(__dirname, ".."));
       } catch (e) {
         logger.error("Uninstall failed", { error: e.message });
       }
