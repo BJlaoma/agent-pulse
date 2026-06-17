@@ -17,7 +17,7 @@ Windows system tray status indicator for opencode — real-time AI status with d
 
 | Action | How | Effect |
 |--------|-----|--------|
-| **Install** | Add `"agent-pulse"` to `opencode.json` | auto-install on restart |
+| **Install** | Add `"@starkita7/agent-pulse"` to `opencode.json` | auto-install on restart |
 | **Run** | Start opencode | tray icon appears |
 | **Pause** | Tray → "🔔 Pause" | tray stays, notifications stop |
 | **Close** | Tray → "Close" | tray hides, auto-restart on next event |
@@ -28,7 +28,7 @@ Windows system tray status indicator for opencode — real-time AI status with d
 ### Via npm
 
 ```bash
-npm install -g agent-pulse
+npm install -g @starkita7/agent-pulse
 ```
 
 Then add to `opencode.json`, or just tell opencode:
@@ -36,7 +36,7 @@ Then add to `opencode.json`, or just tell opencode:
 > "Install the agent-pulse plugin"
 
 ```json
-{ "plugin": ["agent-pulse"] }
+{ "plugin": ["@starkita7/agent-pulse"] }
 ```
 
 Restart opencode.
