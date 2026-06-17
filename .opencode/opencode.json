@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    "D:/code/agent-pulse"
+    "@starkita7/agent-pulse"
   ]
 }

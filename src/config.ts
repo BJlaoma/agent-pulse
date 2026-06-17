@@ -30,7 +30,7 @@ const DEFAULT_CONFIG: AgentPulseConfig = {
     sound: false,
     filter: "all",
     notifyOn: ["thinking", "idle", "waiting", "error", "disconnected"],
-    style: "native",
+    style: "custom",
     position: "bottom-right",
     duration: 5000,
     width: 320,
@@ -43,6 +43,7 @@ const DEFAULT_CONFIG: AgentPulseConfig = {
 
 export function loadConfig(): AgentPulseConfig {
   if (!existsSync(CONFIG_PATH)) {
+    saveConfig(DEFAULT_CONFIG);
     return DEFAULT_CONFIG;
   }
   try {
