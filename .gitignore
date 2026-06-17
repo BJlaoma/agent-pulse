@@ -11,5 +11,8 @@ agent-pulse-state.json
 agent-pulse-debug.log
 agent-pulse.json
 
+# opencode local dev config
+.opencode/
+
 # npm
 npm-debug.log*
