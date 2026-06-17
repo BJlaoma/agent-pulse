@@ -60,6 +60,13 @@ function handleStateChange(reason) {
       } catch (e) {
         logger.error("Failed to open config", { error: e.message });
       }
+    }, (enable) => {
+      // Toggle notifications
+      const config = loadConfig();
+      config.notification.enabled = enable;
+      const { saveConfig } = require("./config.js");
+      saveConfig(config);
+      logger.info("Notifications toggled", { enabled: enable });
     });
     logger.info("Tray updated", { status, label });
   } catch (e) {

@@ -1,6 +1,9 @@
 const SysTray = require("systray").default || require("systray");
-const { readFileSync } = require("fs");
+const { readFileSync, writeFileSync, unlinkSync } = require("fs");
 const { join } = require("path");
+const { tmpdir } = require("os");
+const { exec } = require("child_process");
+const logger = require("./logger.js");
 
 // Status to icon color mapping
 const STATUS_ICON_MAP = {
@@ -18,19 +21,54 @@ function iconToBase64(iconPath) {
 
 let currentTray = null;
 
-function createTray(status, label, onExit, onOpenConfig) {
+function focusOpenCode() {
+  const scriptPath = join(tmpdir(), "agent-pulse-focus.ps1");
+  const psScript = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WF {
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int c);
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+  public static bool Focus(IntPtr h) {
+    if (IsIconic(h)) ShowWindow(h, 9);
+    return SetForegroundWindow(h);
+  }
+}
+"@ -ReferencedAssemblies System
+$proc = Get-Process WindowsTerminal -ErrorAction SilentlyContinue | Where-Object MainWindowHandle | Select-Object -First 1
+if ($proc) { [WF]::Focus($proc.MainWindowHandle) } else { exit 1 }
+`;
+  try {
+    writeFileSync(scriptPath, psScript);
+    exec(`powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${scriptPath}"`, (err) => {
+      try { unlinkSync(scriptPath); } catch (e) {}
+      if (err) logger.warn("Focus opencode failed", { error: err.message });
+    });
+  } catch (e) {
+    logger.warn("Focus opencode script error", { error: e.message });
+  }
+}
+
+function createTray(status, label, onExit, onOpenConfig, onToggleNotify) {
   if (currentTray) {
     try {
-      currentTray.kill(false); // false = don't exit node process
-    } catch (e) {
-      // Ignore
-    }
+      currentTray.kill(false);
+    } catch (e) {}
   }
 
   const iconName = STATUS_ICON_MAP[status] || "gray";
   const iconPath = join(__dirname, "..", "assets", "icons", `${iconName}.ico`);
   const iconBase64 = iconToBase64(iconPath);
   
+  // Load config for notification toggle state
+  let notifyEnabled = true;
+  try {
+    const config = require("./config.js").loadConfig();
+    notifyEnabled = config.notification.enabled;
+  } catch (e) {}
+
   const systray = new SysTray({
     menu: {
       icon: iconBase64,
@@ -38,13 +76,31 @@ function createTray(status, label, onExit, onOpenConfig) {
       tooltip: `Agent Pulse - ${label}`,
       items: [
         {
-          title: `当前状态: ${label}`,
-          tooltip: "Current status",
+          title: `状态: ${label}`,
+          tooltip: "",
           checked: false,
           enabled: false,
         },
         {
-          title: "打开配置",
+          title: "──────────────",
+          tooltip: "",
+          checked: false,
+          enabled: false,
+        },
+        {
+          title: notifyEnabled ? "🔔 暂停通知" : "🔕 恢复通知",
+          tooltip: "Toggle notifications",
+          checked: false,
+          enabled: true,
+        },
+        {
+          title: "📺 聚焦 opencode",
+          tooltip: "Bring opencode window to foreground",
+          checked: false,
+          enabled: true,
+        },
+        {
+          title: "⚙ 打开配置",
           tooltip: "Open configuration file",
           checked: false,
           enabled: true,
@@ -62,11 +118,17 @@ function createTray(status, label, onExit, onOpenConfig) {
   });
 
   systray.onClick(action => {
-    if (action.item.title === "退出") {
+    const title = action.item.title;
+    if (title.includes("退出")) {
       systray.kill();
       onExit();
-    } else if (action.item.title === "打开配置") {
+    } else if (title.includes("打开配置")) {
       onOpenConfig();
+    } else if (title.includes("聚焦 opencode")) {
+      focusOpenCode();
+    } else if (title.includes("暂停通知") || title.includes("恢复通知")) {
+      onToggleNotify(!notifyEnabled);
+      systray.kill(false);
     }
   });
 
@@ -78,18 +140,15 @@ function createTray(status, label, onExit, onOpenConfig) {
   return systray;
 }
 
-function updateTray(status, label, onExit, onOpenConfig) {
-  // systray doesn't support updating icon directly, so recreate
-  createTray(status, label, onExit, onOpenConfig);
+function updateTray(status, label, onExit, onOpenConfig, onToggleNotify) {
+  createTray(status, label, onExit, onOpenConfig, onToggleNotify);
 }
 
 function killTray() {
   if (currentTray) {
     try {
-      currentTray.kill(false); // false = don't exit node process
-    } catch (e) {
-      // Ignore
-    }
+      currentTray.kill(false);
+    } catch (e) {}
     currentTray = null;
   }
 }

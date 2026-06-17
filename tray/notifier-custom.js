@@ -155,11 +155,41 @@ foreach ($p in $pairs) {
 }
 
 $form.Add_Click({ $form.Close() })
+
+# X close button
+$xBtn = New-Object System.Windows.Forms.Label
+$xBtn.Left = $formW - 30; $xBtn.Top = $pad - 4
+$xBtn.Text = 'x'
+$xBtn.Font = New-Object System.Drawing.Font('Cascadia Code', 12)
+$xBtn.ForeColor = [System.Drawing.Color]::FromArgb(130, 130, 150)
+$xBtn.AutoSize = $true
+$xBtn.BackColor = $form.BackColor
+$xBtn.Add_Click({ $form.Close() })
+$form.Controls.Add($xBtn)
+$xBtn.BringToFront()
+
+# Slide-up animation
+$targetTop = $form.Top
+$form.Top += $form.Height + 30
 $form.Show()
+for ($i = $form.Height + 30; $i -ge 0; $i -= 10) {
+  $form.Top = $targetTop + $i
+  [System.Windows.Forms.Application]::DoEvents()
+  Start-Sleep -Milliseconds 8
+}
+$form.Top = $targetTop
+
 $end = [DateTime]::Now.AddMilliseconds(${duration})
 while ([DateTime]::Now -lt $end -and $form.Visible) {
   [System.Windows.Forms.Application]::DoEvents()
   Start-Sleep -Milliseconds 50
+}
+
+# Slide-down
+for ($i = 0; $i -le $form.Height + 30; $i += 10) {
+  $form.Top = $targetTop + $i
+  [System.Windows.Forms.Application]::DoEvents()
+  Start-Sleep -Milliseconds 8
 }
 $form.Close()
 `;
