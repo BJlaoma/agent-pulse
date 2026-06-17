@@ -10,6 +10,7 @@ import { writeState } from "./state.js";
 import { loadConfig } from "./config.js";
 
 let trayProcess: ChildProcess | null = null;
+let lastTrayRestart = 0;
 let lastUserMessage = "";
 let currentModel = "";
 let currentTokens: { input?: number; output?: number; cache?: { read?: number } } = {};
@@ -54,6 +55,7 @@ function startTray() {
     return;
   }
   logToFile("INFO", "Starting tray process", { config });
+  lastTrayRestart = Date.now();
   
   trayProcess = spawn("node", [TRAY_SCRIPT], {
     detached: false,
@@ -140,8 +142,8 @@ export default async function (input: PluginInput): Promise<Hooks> {
         logToFile("INFO", "State mapped from event", { eventType: event.type, newState: state });
         writeState(state);
         logToFile("INFO", "State written to file");
-        // Auto-restart tray if it died (but only if enabled)
-        if (!trayProcess || trayProcess.killed) {
+        // Auto-restart tray if it died (max once per 30s, only if enabled)
+        if ((!trayProcess || trayProcess.killed) && (Date.now() - lastTrayRestart) > 30000) {
           const config = loadConfig();
           if (config.notification.enabled) {
             logToFile("INFO", "Tray not running, restarting");
