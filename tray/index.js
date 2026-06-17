@@ -25,8 +25,8 @@ function handleStateChange(reason) {
     return;
   }
 
-  const { status, label } = state;
-  logger.debug("Read state", { status, label, currentStatus, currentLabel });
+  const { status, label, body } = state;
+  logger.debug("Read state", { status, label, body, currentStatus, currentLabel });
 
   // Only update if status changed
   if (status === currentStatus && label === currentLabel) {
@@ -35,7 +35,7 @@ function handleStateChange(reason) {
   }
 
   currentStatus = status;
-  currentLabel = label;
+  currentLabel = label; 
 
   const config = loadConfig();
   logger.debug("Loaded config", { config });
@@ -68,7 +68,7 @@ function handleStateChange(reason) {
 
   // Send notification
   try {
-    notify(status, label, config);
+    notify(status, label, body, config);
     logger.info("Notification sent", { status, label });
   } catch (e) {
     logger.error("Failed to send notification", { error: e.message });

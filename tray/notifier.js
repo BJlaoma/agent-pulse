@@ -1,10 +1,13 @@
 const notifier = require("node-notifier");
-const player = require("play-sound")();
 const { join } = require("path");
+const { exec } = require("child_process");
 const { showCustomNotification } = require("./notifier-custom.js");
 const logger = require("./logger.js");
 
 const SOUND_PATH = join(__dirname, "..", "assets", "ping.wav");
+
+const MIN_NOTIFY_INTERVAL = 1000; // 1s debounce
+let lastNotifyTime = 0;
 
 // Status to icon color mapping
 const STATUS_ICON_MAP = {
@@ -15,8 +18,15 @@ const STATUS_ICON_MAP = {
   disconnected: "gray",
 };
 
-function notify(status, label, config) {
+function notify(status, label, body, config) {
   if (!config.notification.enabled) {
+    return;
+  }
+
+  // notifyOn: only notify for configured statuses
+  const allowedStatuses = config.notification.notifyOn || ["thinking", "idle", "waiting", "error", "disconnected"];
+  if (!allowedStatuses.includes(status)) {
+    logger.debug("Notification skipped (not in notifyOn)", { status, notifyOn: allowedStatuses });
     return;
   }
 
@@ -29,12 +39,21 @@ function notify(status, label, config) {
     return;
   }
 
+  const now = Date.now();
+  // Debounce: skip if too soon after last notification (unless priority status)
+  const isPriority = status === "waiting" || status === "error";
+  if (now - lastNotifyTime < MIN_NOTIFY_INTERVAL && !isPriority) {
+    logger.debug("Notification skipped (debounce)", { status, sinceLast: now - lastNotifyTime });
+    return;
+  }
+  lastNotifyTime = now;
+
   const iconColor = STATUS_ICON_MAP[status] || "gray";
 
   // Native notification (reliable), custom (experimental) when style=custom
   if (config.notification.style === "custom") {
     try {
-      showCustomNotification("Agent Pulse", label, iconColor, config);
+      showCustomNotification("Agent Pulse", label, body || "", iconColor, config);
     } catch (e) {
       logger.error("Custom notification failed, falling back to native", { error: e.message });
       fallbackNotify(status, label);
@@ -43,11 +62,12 @@ function notify(status, label, config) {
     fallbackNotify(status, label);
   }
 
-  // Play sound
+  // Play sound via PowerShell (silent, no GUI player)
   if (config.notification.sound) {
-    player.play(SOUND_PATH, (err) => {
+    const psCmd = `(New-Object System.Media.SoundPlayer '${SOUND_PATH}').PlaySync()`;
+    exec(`powershell -NoProfile -WindowStyle Hidden -Command "${psCmd}"`, (err) => {
       if (err) {
-        // Silently fail
+        logger.error("Sound playback failed", { error: err.message });
       }
     });
   }

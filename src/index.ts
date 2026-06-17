@@ -10,10 +10,20 @@ import { writeState } from "./state.js";
 import { loadConfig } from "./config.js";
 
 let trayProcess: ChildProcess | null = null;
+let lastUserMessage = "";
+let currentModel = "";
+let currentTokens: { input?: number; output?: number } = {};
+let contextLimit = 0;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRAY_SCRIPT = join(__dirname, "..", "tray", "index.js");
 const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
+
+function formatTokens(n: number): string {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return String(n);
+}
 
 function logToFile(level: string, message: string, data?: any) {
   const timestamp = new Date().toISOString();
@@ -90,8 +100,44 @@ export default async function (input: PluginInput): Promise<Hooks> {
   return {
     event: async ({ event }: { event: Event }) => {
       logToFile("DEBUG", "Received event", { type: event.type });
+
+      const anyEvent = event as any;
+
+      // Capture model + tokens from session.updated
+      if (anyEvent.type === "session.updated" && anyEvent.properties?.info) {
+        const info = anyEvent.properties.info;
+        if (info.model) {
+          currentModel = `${info.model.providerID}/${info.model.id || info.model.modelID}`;
+        }
+        if (info.tokens) {
+          currentTokens = {
+            input: info.tokens.input,
+            output: info.tokens.output,
+          };
+        }
+        logToFile("INFO", "Session info captured", { model: currentModel, tokens: currentTokens });
+      }
+
       const state = mapEventToState(event);
       if (state) {
+        // Enrich body with captured context
+        if (state.status === "thinking") {
+          const parts: string[] = [];
+          if (currentModel) parts.push(`模型: ${currentModel}`);
+          if (contextLimit > 0 && currentTokens.input != null) {
+            const pct = Math.round((currentTokens.input / contextLimit) * 100);
+            const barLen = 10;
+            const filled = Math.round((pct / 100) * barLen);
+            const bar = "█".repeat(filled) + "░".repeat(barLen - filled);
+            parts.push(`上下文: ${bar} ${pct}% (${formatTokens(currentTokens.input)}/${formatTokens(contextLimit)})`);
+          } else if (currentTokens.input != null) {
+            parts.push(`Token: ${formatTokens(currentTokens.input)} 输入 | ${formatTokens(currentTokens.output || 0)} 输出`);
+          }
+          if (lastUserMessage) parts.push(`问题: ${lastUserMessage}`);
+          if (parts.length > 0) state.body = parts.join("\n");
+        } else if (state.status === "idle") {
+          lastUserMessage = "";
+        }
         logToFile("INFO", "State mapped from event", { eventType: event.type, newState: state });
         writeState(state);
         logToFile("INFO", "State written to file");
@@ -106,11 +152,35 @@ export default async function (input: PluginInput): Promise<Hooks> {
       writeState({
         status: "waiting",
         label: "需要权限确认",
+        body: `请求: ${permission.title || permission.type || "未知操作"}`,
         timestamp: Date.now(),
         sessionID: permission.sessionID,
       });
       // Allow opencode to proceed with asking user
       output.status = "ask";
+    },
+
+    "chat.message": async (input, output) => {
+      // Extract user text from message parts
+      if (output.parts && Array.isArray(output.parts)) {
+        for (const part of output.parts) {
+          if (part.type === "text" && typeof part.text === "string") {
+            lastUserMessage = part.text.slice(-300);
+            break;
+          }
+        }
+      }
+      if (input.model) {
+        currentModel = `${input.model.providerID}/${input.model.modelID}`;
+      }
+      logToFile("INFO", "Chat message captured", { model: currentModel, msgLen: lastUserMessage.length });
+    },
+
+    "chat.params": async (input, output) => {
+      if (input.model?.limit?.context) {
+        contextLimit = input.model.limit.context;
+        logToFile("INFO", "Context limit captured", { limit: contextLimit });
+      }
     },
 
     dispose: async () => {
@@ -142,6 +212,7 @@ export default async function (input: PluginInput): Promise<Hooks> {
           enabled: tool.schema.boolean().optional().describe("Enable/disable notifications"),
           sound: tool.schema.boolean().optional().describe("Enable/disable sound"),
           filter: tool.schema.enum(["all", "attention", "none"]).optional().describe("Notification filter"),
+          notifyOn: tool.schema.array(tool.schema.enum(["thinking", "idle", "waiting", "error", "disconnected"])).optional().describe("Statuses that trigger notifications"),
           position: tool.schema.enum(["bottom-left", "bottom-right", "top-left", "top-right"]).optional().describe("Notification position"),
           duration: tool.schema.number().optional().describe("Notification duration in ms"),
         },

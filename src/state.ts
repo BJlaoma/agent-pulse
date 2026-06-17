@@ -9,6 +9,7 @@ export interface AgentState {
   label: string;
   timestamp: number;
   sessionID?: string;
+  body?: string;
 }
 
 const STATE_DIR = join(homedir(), ".config", "opencode");

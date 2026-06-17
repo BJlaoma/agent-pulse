@@ -7,6 +7,7 @@ export interface AgentPulseConfig {
     enabled: boolean;
     sound: boolean;
     filter: "all" | "attention" | "none";
+    notifyOn: AgentStatus[];
     style: "native" | "custom";
     position: "bottom-left" | "bottom-right" | "top-left" | "top-right";
     duration: number;
@@ -18,6 +19,8 @@ export interface AgentPulseConfig {
   };
 }
 
+import type { AgentStatus } from "./state.js";
+
 const CONFIG_DIR = join(homedir(), ".config", "opencode");
 const CONFIG_PATH = join(CONFIG_DIR, "agent-pulse.json");
 
@@ -26,6 +29,7 @@ const DEFAULT_CONFIG: AgentPulseConfig = {
     enabled: true,
     sound: false,
     filter: "all",
+    notifyOn: ["thinking", "idle", "waiting", "error", "disconnected"],
     style: "native",
     position: "bottom-right",
     duration: 5000,

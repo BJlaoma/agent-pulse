@@ -15,11 +15,16 @@ const POSITIONS = {
   "top-left": "tl",
 };
 
-function showCustomNotification(title, message, iconColor, config) {
+function showCustomNotification(title, message, body, iconColor, config) {
   const position = config.notification.position || "bottom-right";
   const duration = config.notification.duration || 5000;
   const hexColor = COLORS[iconColor] || COLORS.gray;
   const pos = POSITIONS[position] || "br";
+  
+  // Escape single quotes for PowerShell string literals
+  const safeTitle = title.replace(/'/g, "''");
+  const safeMessage = message.replace(/'/g, "''");
+  const safeBody = (body || "").replace(/'/g, "''");
   
   logger.info("Launching custom notification", { title, position: pos, duration });
   
@@ -33,50 +38,86 @@ $form.StartPosition = 'Manual'
 $form.ShowInTaskbar = $false
 $form.TopMost = $true
 $form.BackColor = [System.Drawing.Color]::FromArgb(45, 45, 45)
-$form.Width = 320
-$form.Height = 90
 $form.Opacity = 0.95
 
-$screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$bodyText = '${safeBody}'
+$contentWidth = 330
 
+# Measure content heights
+$g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
+
+$titleFont = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
+$titleText = '${safeTitle}'
+
+$statusText = '${safeMessage}'
+$statusSize = $g.MeasureString($statusText, $titleFont, $contentWidth)
+
+$bodyFont = New-Object System.Drawing.Font('Segoe UI', 9)
+$bodySize = $g.MeasureString($bodyText, $bodyFont, $contentWidth)
+$bodyFullHeight = if ($bodyText.Length -gt 0) { [Math]::Ceiling($bodySize.Height) } else { 0 }
+
+$g.Dispose()
+
+$padX = 16
+$padTop = 14
+$gap = 6
+$barMargin = 10
+$curY = $padTop
+
+# Status (first line, colored)
+$curY += [Math]::Ceiling($statusSize.Height)
+# Gap to body
+$curY += $barMargin
+# Body
+$curY += $bodyFullHeight
+# Bottom padding
+$curY += $padTop
+
+$formHeight = [Math]::Max(70, $curY)
+if ($formHeight -gt 320) { $formHeight = 320 }
+
+$form.Width = 360
+$form.Height = $formHeight
+
+$screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
 switch ('${pos}') {
-  'br' { $form.Left = $screen.Width - 340; $form.Top = $screen.Height - 110 }
-  'bl' { $form.Left = 20; $form.Top = $screen.Height - 110 }
-  'tr' { $form.Left = $screen.Width - 340; $form.Top = 20 }
+  'br' { $form.Left = $screen.Width - $form.Width - 20; $form.Top = $screen.Height - $formHeight - 40 }
+  'bl' { $form.Left = 20; $form.Top = $screen.Height - $formHeight - 40 }
+  'tr' { $form.Left = $screen.Width - $form.Width - 20; $form.Top = 20 }
   'tl' { $form.Left = 20; $form.Top = 20 }
 }
 
-# Border panel
-$panel = New-Object System.Windows.Forms.Panel
-$panel.Dock = 'Fill'
-$panel.BackColor = [System.Drawing.Color]::FromArgb(45, 45, 45)
-$panel.Padding = '15,12,15,12'
-
 # Left color bar
 $bar = New-Object System.Windows.Forms.Panel
-$bar.Width = 4
-$bar.Dock = 'Left'
+$bar.Left = 0; $bar.Top = 0
+$bar.Width = 4; $bar.Height = $formHeight
 $bar.BackColor = [System.Drawing.Color]::FromArgb(255, [Convert]::ToInt32('${hexColor}'.Substring(0,2), 16), [Convert]::ToInt32('${hexColor}'.Substring(2,2), 16), [Convert]::ToInt32('${hexColor}'.Substring(4,2), 16))
-$panel.Controls.Add($bar)
+$form.Controls.Add($bar)
 
-# Title
-$titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = '${title}'
-$titleLabel.ForeColor = [System.Drawing.Color]::White
-$titleLabel.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
-$titleLabel.Dock = 'Top'
-$titleLabel.Height = 22
-$panel.Controls.Add($titleLabel)
+$y = $padTop
 
-# Message
-$msgLabel = New-Object System.Windows.Forms.Label
-$msgLabel.Text = '${message}'
-$msgLabel.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 200)
-$msgLabel.Font = New-Object System.Drawing.Font('Segoe UI', 10)
-$msgLabel.Dock = 'Fill'
-$panel.Controls.Add($msgLabel)
+# Status label (colored, replaces old title)
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.Left = $padX; $statusLabel.Top = $y
+$statusLabel.Width = $contentWidth
+$statusLabel.Text = $statusText
+$statusLabel.AutoSize = $true
+$statusLabel.Font = $titleFont
+$statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(52, 199, 89)
+if ('${iconColor}' -eq 'yellow') { $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 159, 10) }
+elseif ('${iconColor}' -eq 'red') { $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(255, 59, 48) }
+elseif ('${iconColor}' -eq 'gray') { $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(142, 142, 147) }
+$form.Controls.Add($statusLabel)
+$y += $statusSize.Height + $barMargin
 
-$form.Controls.Add($panel)
+# Body label
+$bodyLabel = New-Object System.Windows.Forms.Label
+$bodyLabel.Left = $padX; $bodyLabel.Top = $y
+$bodyLabel.Width = $contentWidth; $bodyLabel.Height = $bodyFullHeight
+$bodyLabel.Text = $bodyText
+$bodyLabel.ForeColor = [System.Drawing.Color]::FromArgb(185, 185, 185)
+$bodyLabel.Font = $bodyFont
+$form.Controls.Add($bodyLabel)
 
 # Click to close
 $form.Add_Click({ $form.Close() })
@@ -85,16 +126,13 @@ $form.Add_Click({ $form.Close() })
 [System.Windows.Forms.Application]::Run($form)
 `;
 
-  const ps = spawn("cmd", [
-    "/c",
-    "start", "powershell",
+  const ps = spawn("powershell", [
     "-Sta",
+    "-WindowStyle", "Hidden",
     "-ExecutionPolicy", "Bypass",
-    "-NoExit",
     "-Command", psScript,
   ], {
     windowsHide: true,
-    detached: true,
   });
   
   ps.on("exit", (code) => {
