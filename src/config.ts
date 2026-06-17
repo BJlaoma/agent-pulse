@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -69,7 +69,7 @@ export function loadConfig(): AgentPulseConfig {
 export function saveConfig(config: AgentPulseConfig): void {
   try {
     if (!existsSync(CONFIG_DIR)) {
-      return;
+      mkdirSync(CONFIG_DIR, { recursive: true });
     }
     writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
   } catch (e) {
