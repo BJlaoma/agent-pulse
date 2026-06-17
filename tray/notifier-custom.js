@@ -30,6 +30,22 @@ function showCustomNotification(title, message, body, iconColor, config) {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+Add-Type @"
+using System;
+using System.Windows.Forms;
+public class NF : Form {
+    const int WS_EX_NOACTIVATE = 0x08000000;
+    const int WS_EX_TOPMOST = 0x00000008;
+    protected override CreateParams CreateParams {
+        get {
+            var cp = base.CreateParams;
+            cp.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOPMOST;
+            return cp;
+        }
+    }
+}
+"@ -ReferencedAssemblies "System.Windows.Forms"
+
 $bodyText = '${safeBody}'
 $statusText = '${safeMessage}'
 $font = New-Object System.Drawing.Font('Consolas', 10)
@@ -64,11 +80,10 @@ $formH = [Math]::Ceiling($size.Height) + $pad * 2
 if ($formW -lt 260) { $formW = 260 }
 if ($formH -lt 70) { $formH = 70 }
 
-$form = New-Object System.Windows.Forms.Form
+$form = New-Object NF
 $form.FormBorderStyle = 'None'
 $form.StartPosition = 'Manual'
 $form.ShowInTaskbar = $false
-$form.TopMost = $true
 $form.BackColor = [System.Drawing.Color]::FromArgb(26, 26, 46)
 $form.Opacity = 0.95
 $form.Width = $formW
@@ -109,7 +124,15 @@ $form.Controls.Add($dotLabel)
 $dotLabel.BringToFront()
 
 $form.Add_Click({ $form.Close() })
-[System.Windows.Forms.Application]::Run($form)
+
+# Show without stealing focus (WS_EX_NOACTIVATE)
+$form.Show()
+$end = [DateTime]::Now.AddMilliseconds(${duration})
+while ([DateTime]::Now -lt $end -and $form.Visible) {
+  [System.Windows.Forms.Application]::DoEvents()
+  Start-Sleep -Milliseconds 50
+}
+$form.Close()
 `;
 
   const ps = spawn("powershell", [

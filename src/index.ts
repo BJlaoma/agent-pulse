@@ -123,6 +123,7 @@ export default async function (input: PluginInput): Promise<Hooks> {
         // Enrich body with captured context
         if (state.status === "thinking") {
           const parts: string[] = [];
+          if (lastUserMessage) parts.push(`问题: ${lastUserMessage}`);
           if (currentModel) parts.push(`模型: ${currentModel}`);
           if (contextLimit > 0 && currentTokens.input != null) {
             const pct = Math.round((currentTokens.input / contextLimit) * 100);
@@ -133,7 +134,6 @@ export default async function (input: PluginInput): Promise<Hooks> {
           } else if (currentTokens.input != null) {
             parts.push(`Token: ${formatTokens(currentTokens.input)} 输入 | ${formatTokens(currentTokens.output || 0)} 输出`);
           }
-          if (lastUserMessage) parts.push(`问题: ${lastUserMessage}`);
           if (parts.length > 0) state.body = parts.join("\n");
         } else if (state.status === "idle") {
           lastUserMessage = "";
