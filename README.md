@@ -31,7 +31,9 @@ Windows system tray status indicator for opencode — real-time AI status with d
 npm install -g agent-pulse
 ```
 
-Add to `opencode.json` (or ask opencode AI to do it):
+Then add to `opencode.json`, or just tell opencode:
+
+> "Install the agent-pulse plugin"
 
 ```json
 { "plugin": ["agent-pulse"] }
