@@ -12,8 +12,7 @@ import { loadConfig } from "./config.js";
 let trayProcess: ChildProcess | null = null;
 let lastUserMessage = "";
 let currentModel = "";
-let currentTokens: { input?: number; output?: number } = {};
-let contextLimit = 0;
+let currentTokens: { input?: number; output?: number; cache?: { read?: number } } = {};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRAY_SCRIPT = join(__dirname, "..", "tray", "index.js");
@@ -113,6 +112,7 @@ export default async function (input: PluginInput): Promise<Hooks> {
           currentTokens = {
             input: info.tokens.input,
             output: info.tokens.output,
+            cache: info.tokens.cache,
           };
         }
         logToFile("INFO", "Session info captured", { model: currentModel, tokens: currentTokens });
@@ -125,14 +125,9 @@ export default async function (input: PluginInput): Promise<Hooks> {
           const parts: string[] = [];
           if (lastUserMessage) parts.push(`问题: ${lastUserMessage}`);
           if (currentModel) parts.push(`模型: ${currentModel}`);
-          if (contextLimit > 0 && currentTokens.input != null) {
-            const pct = Math.round((currentTokens.input / contextLimit) * 100);
-            const barLen = 10;
-            const filled = Math.round((pct / 100) * barLen);
-            const bar = "█".repeat(filled) + "░".repeat(barLen - filled);
-            parts.push(`上下文: ${bar} ${pct}% (${formatTokens(currentTokens.input)}/${formatTokens(contextLimit)})`);
-          } else if (currentTokens.input != null) {
-            parts.push(`Token: ${formatTokens(currentTokens.input)} 输入 | ${formatTokens(currentTokens.output || 0)} 输出`);
+          if (currentTokens.input != null) {
+            const cacheRead = currentTokens.cache?.read;
+            parts.push(`Token: 输入 ${formatTokens(currentTokens.input)} | 输出 ${formatTokens(currentTokens.output || 0)}${cacheRead ? ' | 缓存 ' + formatTokens(cacheRead) : ''}`);
           }
           if (parts.length > 0) state.body = parts.join("\n");
         } else if (state.status === "idle") {
@@ -177,10 +172,7 @@ export default async function (input: PluginInput): Promise<Hooks> {
     },
 
     "chat.params": async (input, output) => {
-      if (input.model?.limit?.context) {
-        contextLimit = input.model.limit.context;
-        logToFile("INFO", "Context limit captured", { limit: contextLimit });
-      }
+      // Available but model.limit.context is 0 for most providers
     },
 
     dispose: async () => {

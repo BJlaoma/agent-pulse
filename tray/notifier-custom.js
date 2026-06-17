@@ -48,37 +48,44 @@ public class NF : Form {
 
 $bodyText = '${safeBody}'
 $statusText = '${safeMessage}'
-$font = New-Object System.Drawing.Font('Consolas', 10)
+$font = New-Object System.Drawing.Font('Cascadia Code', 10)
+$keyFont = New-Object System.Drawing.Font('Cascadia Code', 10, [System.Drawing.FontStyle]::Bold)
+$valFont = New-Object System.Drawing.Font('Cascadia Code', 10)
+$keyColor = [System.Drawing.Color]::FromArgb(130, 170, 215)
+$valColor = [System.Drawing.Color]::FromArgb(200, 200, 200)
 
-# Build content text
-$lines = @()
-$lines += "  " + $statusText
+# Parse body into key-value pairs
+$pairs = @()
 if ($bodyText.Length -gt 0) {
-  $lines += ""
   $bodyParts = $bodyText -split "\`n"
   foreach ($part in $bodyParts) {
     $colonIdx = $part.IndexOf(":")
     if ($colonIdx -gt 0) {
       $lbl = $part.Substring(0, $colonIdx).Trim()
       $val = $part.Substring($colonIdx + 1).Trim()
-      $lines += ("  " + $lbl + " ".PadRight([Math]::Max(1, 5 - $lbl.Length)) + $val)
+      $pairs += @{ key = $lbl; val = $val }
     }
   }
 }
-$content = $lines -join "\`n"
-
-# Measure required size
-$g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
-$maxW = 400
-$size = $g.MeasureString($content, $font, $maxW)
-$g.Dispose()
 
 $pad = 20
 $dotX = 14
-$formW = [Math]::Ceiling($size.Width) + $pad * 2
-$formH = [Math]::Ceiling($size.Height) + $pad * 2
-if ($formW -lt 260) { $formW = 260 }
-if ($formH -lt 70) { $formH = 70 }
+$lineH = 20
+$gap = 4
+$formW = 420
+
+# Calculate total height
+$totalH = $pad  # top pad
+# Status line
+$totalH += $lineH
+if ($pairs.Count -gt 0) {
+  $totalH += $gap * 2  # gap before pairs
+  foreach ($p in $pairs) {
+    $totalH += $lineH + $gap
+  }
+}
+$totalH += $pad  # bottom pad
+$formH = [Math]::Max(70, $totalH)
 
 $form = New-Object NF
 $form.FormBorderStyle = 'None'
@@ -91,41 +98,63 @@ $form.Height = $formH
 
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
 switch ('${pos}') {
-  'br' { $form.Left = $screen.Width - $form.Width - 20; $form.Top = $screen.Height - $form.Height - 40 }
-  'bl' { $form.Left = 20; $form.Top = $screen.Height - $form.Height - 40 }
+  'br' { $form.Left = $screen.Width - $form.Width - 20; $form.Top = $screen.Height - $formH - 40 }
+  'bl' { $form.Left = 20; $form.Top = $screen.Height - $formH - 40 }
   'tr' { $form.Left = $screen.Width - $form.Width - 20; $form.Top = 20 }
   'tl' { $form.Left = 20; $form.Top = 20 }
 }
 
-# Main text label
-$label = New-Object System.Windows.Forms.Label
-$label.Left = $dotX + 16; $label.Top = $pad
-$label.Width = $formW - $dotX - 24
-$label.Height = $formH - $pad * 2
-$label.Text = $content
-$label.ForeColor = [System.Drawing.Color]::FromArgb(224, 224, 224)
-$label.Font = $font
-$label.BackColor = [System.Drawing.Color]::FromArgb(26, 26, 46)
-$form.Controls.Add($label)
+$y = $pad
 
-# Colored dot (overlay)
+# Colored dot
 $dotLabel = New-Object System.Windows.Forms.Label
-$dotLabel.Left = $dotX; $dotLabel.Top = $pad
+$dotLabel.Left = $dotX; $dotLabel.Top = $y
 $dotLabel.Text = '●'
 $dotLabel.Font = $font
 $dotLabel.AutoSize = $true
-$dotLabel.BackColor = [System.Drawing.Color]::FromArgb(26, 26, 46)
+$dotLabel.BackColor = $form.BackColor
 $dotColor = [System.Drawing.Color]::FromArgb(52, 199, 89)
 if ('${iconColor}' -eq 'yellow') { $dotColor = [System.Drawing.Color]::FromArgb(255, 159, 10) }
 elseif ('${iconColor}' -eq 'red') { $dotColor = [System.Drawing.Color]::FromArgb(255, 59, 48) }
 elseif ('${iconColor}' -eq 'gray') { $dotColor = [System.Drawing.Color]::FromArgb(142, 142, 147) }
 $dotLabel.ForeColor = $dotColor
 $form.Controls.Add($dotLabel)
-$dotLabel.BringToFront()
+
+# Status label
+$stLabel = New-Object System.Windows.Forms.Label
+$stLabel.Left = $dotX + 18; $stLabel.Top = $y
+$stLabel.Text = $statusText
+$stLabel.Font = $font
+$stLabel.ForeColor = [System.Drawing.Color]::White
+$stLabel.AutoSize = $true
+$stLabel.BackColor = $form.BackColor
+$form.Controls.Add($stLabel)
+$y += $lineH + $gap * 2
+
+# Key-value rows
+foreach ($p in $pairs) {
+  $keyLabel = New-Object System.Windows.Forms.Label
+  $keyLabel.Left = $dotX + 24; $keyLabel.Top = $y
+  $keyLabel.Text = $p.key
+  $keyLabel.Font = $keyFont
+  $keyLabel.ForeColor = $keyColor
+  $keyLabel.AutoSize = $true
+  $keyLabel.BackColor = $form.BackColor
+  $form.Controls.Add($keyLabel)
+  
+  $valLabel = New-Object System.Windows.Forms.Label
+  $valLabel.Left = $dotX + 90; $valLabel.Top = $y
+  $valLabel.Text = $p.val
+  $valLabel.Font = $valFont
+  $valLabel.ForeColor = $valColor
+  $valLabel.AutoSize = $true
+  $valLabel.BackColor = $form.BackColor
+  $form.Controls.Add($valLabel)
+  
+  $y += $lineH + $gap
+}
 
 $form.Add_Click({ $form.Close() })
-
-# Show without stealing focus (WS_EX_NOACTIVATE)
 $form.Show()
 $end = [DateTime]::Now.AddMilliseconds(${duration})
 while ([DateTime]::Now -lt $end -and $form.Visible) {
