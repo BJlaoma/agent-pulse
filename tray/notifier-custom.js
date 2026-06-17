@@ -154,7 +154,23 @@ foreach ($p in $pairs) {
   $y += $lineH + $gap
 }
 
-$form.Add_Click({ $form.Close() })
+# Single-click focus handler
+$focusAction = {
+  $form.Close()
+  $h = (Get-Process WindowsTerminal -ErrorAction 0 | Where MainWindowHandle | Select -First 1).MainWindowHandle
+  if ($h) {
+    try { [WF]::Focus($h) } catch {
+      Add-Type -ReferencedAssemblies System -TypeDefinition ('using System;using System.Runtime.InteropServices;' +
+        'public class WF{[DllImport("user32")]static extern bool ShowWindow(IntPtr h,int c);' +
+        '[DllImport("user32")]static extern bool SetForegroundWindow(IntPtr h);' +
+        '[DllImport("user32")]static extern bool IsIconic(IntPtr h);' +
+        'public static bool Focus(IntPtr h){if(IsIconic(h))ShowWindow(h,9);return SetForegroundWindow(h);}}')
+      try { [WF]::Focus($h) } catch {}
+    }
+  }
+}
+$form.Add_Click($focusAction)
+$form.Add_MouseClick($focusAction)
 
 # X close button
 $xBtn = New-Object System.Windows.Forms.Label
